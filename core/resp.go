@@ -1,6 +1,9 @@
 package core
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 func readLength(data []byte) (int, int) {
 	pos, length := 0, 0
@@ -16,10 +19,14 @@ func readLength(data []byte) (int, int) {
 
 func readSimpleString(data []byte) (string, int, error) {
 	pos := 1
-	for ; pos < len(data) && data[pos] != '\r'; pos++ {
-
+	for i := pos; i < len(data); i++ {
+		if data[i] == '\r' {
+			break
+		}
+		pos = i
 	}
-	return string(data[1 : pos]), pos + 2, nil
+	fmt.Println("28", string(data[1:pos+1]))
+	return string(data[1 : pos+1]), pos + 3, nil
 }
 
 func readError(data []byte) (string, int, error) {

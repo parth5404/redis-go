@@ -67,6 +67,7 @@ func TestArrayDecode(t *testing.T) {
 	for k, v := range cases {
 		value, _ := core.Decode([]byte(k))
 		array := value.([]interface{})
+		fmt.Println(value)
 		if len(array) != len(v) {
 			t.Fail()
 		}
