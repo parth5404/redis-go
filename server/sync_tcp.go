@@ -47,8 +47,8 @@ func RunSyncTCP() {
 }
 
 func readCmd(c net.Conn) (string, error) {
-	buf := make([]byte, 512)
-	n, err := c.Read(buf)
+	buf := make([]byte, 1024)
+	n, err := c.Read(buf[:])
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +56,8 @@ func readCmd(c net.Conn) (string, error) {
 }
 
 func respond(c net.Conn, cmd string) error {
-	_, err := c.Write([]byte(cmd))
+	//for RESP compliance
+	_, err := c.Write([]byte("-ERR unknown command\r\n"))
 	if err != nil {
 		return err
 	}
