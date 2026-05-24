@@ -1,11 +1,14 @@
 package server
 
 import (
+	"fmt"
 	"github/redis.go/config"
+	"github/redis.go/core"
 	"io"
 	"log"
 	"net"
 	"strconv"
+	"strings"
 )
 
 var con_clients int = 0
@@ -37,48 +40,55 @@ func RunSyncTCP() {
 				}
 				log.Println("Error", err)
 			}
-			log.Println("command", cmd)
-			if err = respond(c, cmd); err != nil {
-				log.Print("err write:", err)
-			}
+			respond(c, cmd)
 		}
 		// go handle(c)
 	}
 }
 
-func readCmd(c net.Conn) (string, error) {
-	buf := make([]byte, 1024)
+func readCmd(c net.Conn) (*core.RedisCmd, error) {
+	buf := make([]byte, 512)
 	n, err := c.Read(buf[:])
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(buf[:n]), nil
-}
-
-func respond(c net.Conn, cmd string) error {
-	//for RESP compliance
-	_, err := c.Write([]byte("-ERR unknown command\r\n"))
+	rediscmd, err := core.DecodeArrayString(buf[:n])
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &core.RedisCmd{
+		Cmd:  strings.ToUpper(rediscmd[0]),
+		Args: rediscmd[1:],
+	}, nil
 }
 
-func handle(c net.Conn) {
-	for {
-		cmd, err := readCmd(c)
-		if err != nil {
-			c.Close()
-			con_clients -= 1
-			log.Println("client disconnected", c.RemoteAddr(), "concurrent clients", con_clients)
-			if err == io.EOF {
-				break
-			}
-			log.Println("Error", err)
-		}
-		log.Println("command", cmd)
-		if err = respond(c, cmd); err != nil {
-			log.Print("err write:", err)
-		}
+func respond(c net.Conn, cmd *core.RedisCmd) {
+	//for RESP compliance
+	err := core.EvalAndRespond(cmd, c)
+	if err != nil {
+		respondError(err, c)
 	}
+
 }
+func respondError(err error, c net.Conn) {
+	c.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
+}
+
+// func handle(c net.Conn) {
+// 	for {
+// 		cmd, err := readCmd(c)
+// 		if err != nil {
+// 			c.Close()
+// 			con_clients -= 1
+// 			log.Println("client disconnected", c.RemoteAddr(), "concurrent clients", con_clients)
+// 			if err == io.EOF {
+// 				break
+// 			}
+// 			log.Println("Error", err)
+// 		}
+// 		log.Println("command", cmd)
+// 		if err = respond(c, cmd); err != nil {
+// 			log.Print("err write:", err)
+// 		}
+// 	}
+// }

@@ -20,13 +20,12 @@ func readLength(data []byte) (int, int) {
 func readSimpleString(data []byte) (string, int, error) {
 	pos := 1
 	for i := pos; i < len(data); i++ {
+		pos = i
 		if data[i] == '\r' {
 			break
 		}
-		pos = i
 	}
-	fmt.Println("28", string(data[1:pos+1]))
-	return string(data[1 : pos+1]), pos + 3, nil
+	return string(data[1:pos]), pos + 2, nil
 }
 
 func readError(data []byte) (string, int, error) {
@@ -104,4 +103,28 @@ func Decode(data []byte) (interface{}, error) {
 	}
 	value, _, err := DecodeOne(data)
 	return value, err
+}
+
+func DecodeArrayString(data []byte) ([]string, error) {
+	val, err := Decode(data)
+	if err != nil {
+		return nil, err
+	}
+	ts := val.([]interface{})
+	tokens := make([]string, len(ts))
+	for k, v := range ts {
+		tokens[k] = v.(string)
+	}
+	return tokens, err
+}
+
+func Encode(value interface{}, isSimple bool) []byte {
+	switch v := value.(type) {
+	case string:
+		if isSimple {
+			return []byte(fmt.Sprintf("+%s\r\n", v))
+		}
+		return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(v), v))
+	}
+	return nil
 }
