@@ -46,7 +46,7 @@ func RunSyncTCP() {
 	}
 }
 
-func readCmd(c net.Conn) (*core.RedisCmd, error) {
+func readCmd(c io.ReadWriter) (*core.RedisCmd, error) {
 	buf := make([]byte, 512)
 	n, err := c.Read(buf[:])
 	if err != nil {
@@ -62,7 +62,7 @@ func readCmd(c net.Conn) (*core.RedisCmd, error) {
 	}, nil
 }
 
-func respond(c net.Conn, cmd *core.RedisCmd) {
+func respond(c io.ReadWriter, cmd *core.RedisCmd) {
 	//for RESP compliance
 	err := core.EvalAndRespond(cmd, c)
 	if err != nil {
@@ -70,7 +70,7 @@ func respond(c net.Conn, cmd *core.RedisCmd) {
 	}
 
 }
-func respondError(err error, c net.Conn) {
+func respondError(err error, c io.ReadWriter) {
 	c.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
 }
 

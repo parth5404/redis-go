@@ -16,5 +16,6 @@ func setupFlags() {
 func main() {
 	setupFlags()
 	log.Println("Cache Hit")
-	server.RunSyncTCP()
+	//server.RunSyncTCP()
+	server.RunAsyncTCP()
 }

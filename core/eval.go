@@ -3,11 +3,11 @@ package core
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
-	"net"
 )
 
-func evalPing(cmd *RedisCmd, conn net.Conn) error {
+func evalPing(cmd *RedisCmd, conn io.ReadWriter) error {
 	var b []byte
 	if len(cmd.Args) > 2 {
 		return errors.New("ERR wrong number of arguments for 'ping' command")
@@ -21,12 +21,12 @@ func evalPing(cmd *RedisCmd, conn net.Conn) error {
 	_, err := conn.Write(b)
 	return err
 }
-func evalCommand(cmd *RedisCmd, conn net.Conn) error {
+func evalCommand(cmd *RedisCmd, conn io.ReadWriter) error {
 	_, err := conn.Write([]byte("*0\r\n"))
 	return err
 }
 
-func EvalAndRespond(cmd *RedisCmd, conn net.Conn) error {
+func EvalAndRespond(cmd *RedisCmd, conn io.ReadWriter) error {
 	log.Println("command", cmd.Cmd)
 	switch cmd.Cmd {
 	case "PING":
