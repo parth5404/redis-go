@@ -103,6 +103,20 @@ func evalTTL(cmd *RedisCmd, conn io.ReadWriter) error {
 	return nil
 }
 
+func evalDEL(cmd *RedisCmd, conn io.ReadWriter) error {
+	if len(cmd.Args) < 1 {
+		return errors.New("(error) ERR wrong number of arguments for DEL command")
+	}
+	cnt := 0
+	for _, key := range cmd.Args {
+		if ok := Del(key); ok {
+			cnt++
+		}
+	}
+	conn.Write(Encode(int64(cnt), false))
+	return nil
+}
+
 func evalCommand(conn io.ReadWriter) error {
 	_, err := conn.Write([]byte("+OK\r\n"))
 	return err
@@ -119,6 +133,8 @@ func EvalAndRespond(cmd *RedisCmd, conn io.ReadWriter) error {
 		return evalGET(cmd, conn)
 	case "TTL":
 		return evalTTL(cmd, conn)
+	case "DEL":
+		return evalDEL(cmd, conn)
 	case "COMMAND":
 		return evalCommand(conn)
 	}

@@ -1,12 +1,12 @@
 package server
 
 import (
-	"fmt"
 	"github/redis.go/config"
 	"github/redis.go/core"
 	"log"
 	"net"
 	"syscall"
+	"time"
 )
 
 var ipv4 net.IP = net.ParseIP(config.Host)
@@ -15,6 +15,8 @@ var serverSockaddr *syscall.SockaddrInet4 = &syscall.SockaddrInet4{
 	Addr: [4]byte{ipv4[0], ipv4[1], ipv4[2], ipv4[3]},
 }
 var events []syscall.EpollEvent = make([]syscall.EpollEvent, 20_000)
+var cronFrequency time.Duration = 1 * time.Second
+var lastCronExecTime time.Time = time.Now()
 
 func RunAsyncTCP() error {
 
@@ -43,8 +45,12 @@ func RunAsyncTCP() error {
 		log.Print(err.Error())
 		return err
 	}
-	fmt.Println("Server Started")
+	log.Println("Server Started")
 	for {
+		if time.Now().After(lastCronExecTime.Add(cronFrequency)) {
+			core.DelExpireKeys()
+			lastCronExecTime = time.Now()
+		}
 		n, err := syscall.EpollWait(epfd, events[:], -1)
 		if err != nil {
 			log.Print(err.Error())

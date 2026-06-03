@@ -36,3 +36,7 @@ go.work.sum
 bin/
 build/
 tmp/
+debug
+__debug_bin*
+
+
