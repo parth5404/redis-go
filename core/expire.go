@@ -13,6 +13,10 @@ func expireSample() float32 {
 		if obj.ExpiresAt != -1 && time.Now().UnixMilli() >= obj.ExpiresAt {
 			delete(store, key)
 			expiredCount++
+			limit--
+		}
+		if limit == 0 {
+			break
 		}
 	}
 	return float32(expiredCount) / float32(limit)

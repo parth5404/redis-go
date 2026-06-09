@@ -64,6 +64,8 @@ func RunAsyncTCP() error {
 					continue
 				}
 				con_clients++
+				//todo
+				//assigne this new client to an seprate IO thread
 				if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, clientfd, &syscall.EpollEvent{
 					Events: syscall.EPOLLIN,
 					Fd:     int32(clientfd),
@@ -73,12 +75,15 @@ func RunAsyncTCP() error {
 				}
 			} else {
 				comm := core.FDComm{Fd: int(events[i].Fd)}
+				///todo
+				//same I/O thread for read cmd
 				cmd, err := readCmd(&comm)
 				if err != nil {
 					syscall.Close(int(events[i].Fd))
 					con_clients -= 1
-					continue
-				}
+					continue	
+				}		
+				//single threaded response making
 				respond(&comm, cmd)
 			}
 
