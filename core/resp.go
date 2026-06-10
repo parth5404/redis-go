@@ -97,25 +97,30 @@ func DecodeOne(data []byte) (interface{}, int, error) {
 	}
 	return nil, 0, nil
 }
-func Decode(data []byte) (interface{}, error) {
+func Decode(data []byte) ([]interface{}, error) {
 	if len(data) == 0 {
 		return nil, errors.New("no data")
 	}
-	value, _, err := DecodeOne(data)
-	return value, err
+	var values []interface{} = make([]interface{}, 0)
+	var index int = 0
+	for index < len(data) {
+		value, pos, err := DecodeOne(data[index:])
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+		index += pos
+	}
+
+	return values, nil
 }
 
-func DecodeArrayString(data []byte) ([]string, error) {
-	val, err := Decode(data)
-	if err != nil {
-		return nil, err
-	}
-	ts := val.([]interface{})
-	tokens := make([]string, len(ts))
-	for k, v := range ts {
+func DecodeArrayString(data []interface{}) ([]string, error) {
+	tokens := make([]string, len(data))
+	for k, v := range data {
 		tokens[k] = v.(string)
 	}
-	return tokens, err
+	return tokens, nil
 }
 
 func Encode(value interface{}, isSimple bool) []byte {

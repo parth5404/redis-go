@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"time"
 )
@@ -122,21 +121,24 @@ func evalCommand(conn io.ReadWriter) error {
 	return err
 }
 
-func EvalAndRespond(cmd *RedisCmd, conn io.ReadWriter) error {
-	log.Println("command", cmd.Cmd)
-	switch cmd.Cmd {
-	case "PING":
-		return evalPing(cmd, conn)
-	case "SET":
-		return evalSET(cmd, conn)
-	case "GET":
-		return evalGET(cmd, conn)
-	case "TTL":
-		return evalTTL(cmd, conn)
-	case "DEL":
-		return evalDEL(cmd, conn)
-	case "COMMAND":
-		return evalCommand(conn)
+func EvalAndRespond(cmds *RedisCmds, conn io.ReadWriter) error {
+	//log.Println("command", cmd.Cmd)
+	for _, cmd := range *cmds {
+		switch cmd.Cmd {
+		case "PING":
+			evalPing(cmd, conn)
+		case "SET":
+			evalSET(cmd, conn)
+		case "GET":
+			evalGET(cmd, conn)
+		case "TTL":
+			evalTTL(cmd, conn)
+		case "DEL":
+			evalDEL(cmd, conn)
+		case "COMMAND":
+			evalCommand(conn)
+		}
 	}
+
 	return nil
 }

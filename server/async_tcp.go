@@ -77,14 +77,14 @@ func RunAsyncTCP() error {
 				comm := core.FDComm{Fd: int(events[i].Fd)}
 				///todo
 				//same I/O thread for read cmd
-				cmd, err := readCmd(&comm)
+				cmds, err := readCmds(&comm)
 				if err != nil {
 					syscall.Close(int(events[i].Fd))
 					con_clients -= 1
 					continue	
 				}		
 				//single threaded response making
-				respond(&comm, cmd)
+				respond(&comm, cmds)
 			}
 
 		}

@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"strings"
 )
 
 var con_clients int = 0
@@ -30,7 +29,7 @@ func RunSyncTCP() {
 		con_clients++
 		log.Println("client connected with address:", c.RemoteAddr(), "concurrent clients", con_clients)
 		for {
-			cmd, err := readCmd(c)
+			cmd, err := readCmds(c)
 			if err != nil {
 				c.Close()
 				con_clients -= 1
@@ -46,25 +45,40 @@ func RunSyncTCP() {
 	}
 }
 
-func readCmd(c io.ReadWriter) (*core.RedisCmd, error) {
+func readCmds(c io.ReadWriter) (*core.RedisCmds, error) {
 	buf := make([]byte, 512)
 	n, err := c.Read(buf[:])
 	if err != nil {
 		return nil, err
 	}
-	rediscmd, err := core.DecodeArrayString(buf[:n])
+	rediscmd, err := core.Decode(buf[:n])
 	if err != nil {
 		return nil, err
 	}
-	return &core.RedisCmd{
-		Cmd:  strings.ToUpper(rediscmd[0]),
-		Args: rediscmd[1:],
-	}, nil
+	var rediscmds core.RedisCmds = make([]*core.RedisCmd, 0)
+	for _, v := range rediscmd {
+		fmt.Println(v)
+		arr, ok := v.([]interface{})
+		var args []string = make([]string, len(arr))
+		if !ok {
+			return nil, nil
+		}
+		for i := 1; i < len(arr); i++ {
+			args[i] = arr[i].(string)
+		}
+
+		rediscmds = append(rediscmds, &core.RedisCmd{
+			Cmd:  arr[0].(string),
+			Args: args[1:],
+		})
+	}
+	return &rediscmds, nil
+
 }
 
-func respond(c io.ReadWriter, cmd *core.RedisCmd) {
+func respond(c io.ReadWriter, cmds *core.RedisCmds) {
 	//for RESP compliance
-	err := core.EvalAndRespond(cmd, c)
+	err := core.EvalAndRespond(cmds, c)
 	if err != nil {
 		respondError(err, c)
 	}
