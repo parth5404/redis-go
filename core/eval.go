@@ -120,6 +120,14 @@ func evalCommand(conn io.ReadWriter) error {
 	_, err := conn.Write([]byte("+OK\r\n"))
 	return err
 }
+func evalBGREAOF(conn io.ReadWriter) error {
+	err := DumpAlLAof()
+	if err != nil {
+		return errors.New("(error) ERR AOF file error")
+	}
+	conn.Write([]byte("+OK\r\n"))
+	return nil
+}
 
 func EvalAndRespond(cmds *RedisCmds, conn io.ReadWriter) error {
 	//log.Println("command", cmd.Cmd)
@@ -137,6 +145,8 @@ func EvalAndRespond(cmds *RedisCmds, conn io.ReadWriter) error {
 			evalDEL(cmd, conn)
 		case "COMMAND":
 			evalCommand(conn)
+		case "BGREWRITE":
+			evalBGREAOF(conn)
 		}
 	}
 
