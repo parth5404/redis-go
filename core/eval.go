@@ -121,10 +121,12 @@ func evalCommand(conn io.ReadWriter) error {
 	return err
 }
 func evalBGREAOF(conn io.ReadWriter) error {
-	err := DumpAlLAof()
-	if err != nil {
-		return errors.New("(error) ERR AOF file error")
-	}
+	go func() {
+		DumpAlLAof()
+	}()
+	// if err != nil {
+	// 	return errors.New("(error) ERR AOF file error")
+	// }
 	conn.Write([]byte("+OK\r\n"))
 	return nil
 }
