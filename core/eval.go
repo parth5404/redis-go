@@ -149,6 +149,9 @@ func EvalAndRespond(cmds *RedisCmds, conn io.ReadWriter) error {
 			evalCommand(conn)
 		case "BGREWRITE":
 			evalBGREAOF(conn)
+		default:
+            errMsg := fmt.Sprintf("-ERR unknown command '%s'\r\n", cmd.Cmd)
+            conn.Write([]byte(errMsg))
 		}
 	}
 

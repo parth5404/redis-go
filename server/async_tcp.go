@@ -17,6 +17,7 @@ var serverSockaddr *syscall.SockaddrInet4 = &syscall.SockaddrInet4{
 var events []syscall.EpollEvent = make([]syscall.EpollEvent, 20_000)
 var cronFrequency time.Duration = 1 * time.Second
 var lastCronExecTime time.Time = time.Now()
+var EPOLLIN uint32 = 1 << 31
 
 func RunAsyncTCP() error {
 
@@ -39,7 +40,7 @@ func RunAsyncTCP() error {
 		return err
 	}
 	if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, serverFd, &syscall.EpollEvent{
-		Events: syscall.EPOLLIN,
+		Events: syscall.EPOLLIN | EPOLLIN,
 		Fd:     int32(serverFd),
 	}); err != nil {
 		log.Print(err.Error())
@@ -58,20 +59,33 @@ func RunAsyncTCP() error {
 		}
 		for i := 0; i < n; i++ {
 			if events[i].Fd == int32(serverFd) {
-				clientfd, _, err := syscall.Accept4(serverFd, 0)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-				con_clients++
-				//todo
-				//assigne this new client to an seprate IO thread
-				if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, clientfd, &syscall.EpollEvent{
-					Events: syscall.EPOLLIN,
-					Fd:     int32(clientfd),
-				}); err != nil {
-					log.Print(err.Error())
-					return err
+				for {
+					clientfd, _, err := syscall.Accept4(serverFd, syscall.O_NONBLOCK)
+					if err != nil {
+						// Condition 1: End of Queue
+						if err == syscall.EAGAIN || err == syscall.EWOULDBLOCK {
+							break
+						}
+
+						// Condition 2: Middle Client Lost after event creation and before TCP handshake
+						if err == syscall.ECONNABORTED || err == syscall.EPROTO {
+							continue 
+						}
+
+						// Condition 3: ANy other Unknown error
+						log.Println("Fatal error accepting connection:", err)
+						break
+					}
+					con_clients++
+					//todo
+					//assigne this new client to an seprate IO thread
+					if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, clientfd, &syscall.EpollEvent{
+						Events: syscall.EPOLLIN,
+						Fd:     int32(clientfd),
+					}); err != nil {
+						log.Print(err.Error())
+						return err
+					}
 				}
 			} else {
 				comm := core.FDComm{Fd: int(events[i].Fd)}
@@ -81,8 +95,8 @@ func RunAsyncTCP() error {
 				if err != nil {
 					syscall.Close(int(events[i].Fd))
 					con_clients -= 1
-					continue	
-				}		
+					continue
+				}
 				//single threaded response making
 				respond(&comm, cmds)
 			}
