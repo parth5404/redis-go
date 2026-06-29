@@ -96,8 +96,31 @@ func DecodeOne(data []byte) (interface{}, int, error) {
 	case '*':
 		return readArray(data)
 	}
-	return nil, 0, nil
+	return readInline(data)
 }
+
+func readInline(data []byte) (interface{}, int, error) {
+	pos := 0
+	for i := 0; i < len(data); i++ {
+		if data[i] == '\r' && i+1 < len(data) && data[i+1] == '\n' {
+			pos = i
+			break
+		}
+	}
+	if pos == 0 && (len(data) == 0 || data[0] != '\r') {
+		return nil, 0, fmt.Errorf("invalid protocol")
+	}
+
+	parts := bytes.Split(data[:pos], []byte(" "))
+	var elems []interface{}
+	for _, part := range parts {
+		if len(part) > 0 {
+			elems = append(elems, string(part))
+		}
+	}
+	return elems, pos + 2, nil
+}
+
 func Decode(data []byte) ([]interface{}, error) {
 	if len(data) == 0 {
 		return nil, errors.New("no data")
