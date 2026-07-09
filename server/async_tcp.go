@@ -46,11 +46,16 @@ func RunAsyncTCP() error {
 		return err
 	}
 	log.Println("Server Started")
-	for {
-		if time.Now().After(lastCronExecTime.Add(cronFrequency)) {
+
+	// Run the expiration job in a dedicated background goroutine
+	go func() {
+		ticker := time.NewTicker(cronFrequency)
+		for range ticker.C {
 			core.DelExpireKeys()
-			lastCronExecTime = time.Now()
 		}
+	}()
+
+	for {
 		n, err := syscall.EpollWait(epfd, events[:], -1)
 		if err != nil {
 			log.Print(err.Error())

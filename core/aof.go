@@ -13,10 +13,15 @@ func dumpKey(file *os.File, k string, obj *Obj) {
 	file.Write(Encode(tokens, false))
 }
 func DumpAlLAof() error {
-	file, err := os.OpenFile(config.AOFfile, os.O_CREATE|os.O_WRONLY, os.FileMode(os.O_APPEND))
+	file, err := os.OpenFile(config.AOFfile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
+	defer file.Close()
+
+	RWmutex.RLock()
+	defer RWmutex.RUnlock()
+
 	for k, obj := range store {
 		dumpKey(file, k, obj)
 	}

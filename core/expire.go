@@ -6,6 +6,8 @@ import (
 )
 
 func expireSample() float32 {
+	RWmutex.Lock()
+	defer RWmutex.Unlock()
 	var limit int = 20
 	var expiredCount int = 0
 

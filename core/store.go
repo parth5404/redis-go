@@ -2,10 +2,12 @@ package core
 
 import (
 	"github/redis.go/config"
+	"sync"
 	"time"
 )
 
 var store map[string]*Obj
+var RWmutex sync.RWMutex
 
 type Obj struct {
 	Value     interface{}
@@ -28,13 +30,17 @@ func NewObj(value interface{}, durationMs int64) *Obj {
 }
 
 func Put(k string, obj *Obj) {
-	if len(store) > config.KeyLimit {
+	RWmutex.Lock()
+	defer RWmutex.Unlock()
+	if len(store) >= config.KeyLimit {
 		evict()
 	}
 	store[k] = obj
 }
 
 func Get(k string) *Obj {
+	RWmutex.Lock()
+	defer RWmutex.Unlock()
 	v := store[k]
 	if v != nil && v.ExpiresAt != -1 && time.Now().UnixMilli() >= v.ExpiresAt {
 		delete(store, k)
@@ -44,6 +50,8 @@ func Get(k string) *Obj {
 }
 
 func Del(k string) bool {
+	RWmutex.Lock()
+	defer RWmutex.Unlock()
 	if _, ok := store[k]; ok {
 		delete(store, k)
 		return true

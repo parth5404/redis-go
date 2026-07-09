@@ -26,7 +26,7 @@ func evalPing(cmd *RedisCmd, conn io.ReadWriter) error {
 }
 
 func evalSET(cmd *RedisCmd, conn io.ReadWriter) error {
-	if len(cmd.Args) < 1 {
+	if len(cmd.Args) < 2 {
 		return errors.New("(error) ERR wrong number of arguments for set command")
 	}
 	var key, value string
@@ -134,26 +134,33 @@ func evalBGREAOF(conn io.ReadWriter) error {
 func EvalAndRespond(cmds *RedisCmds, conn io.ReadWriter) error {
 	//log.Println("command", cmd.Cmd)
 	for _, cmd := range *cmds {
+		var err error
 		switch cmd.Cmd {
 		case "PING":
-			evalPing(cmd, conn)
+			err = evalPing(cmd, conn)
 		case "SET":
-			evalSET(cmd, conn)
+			err = evalSET(cmd, conn)
 		case "GET":
-			evalGET(cmd, conn)
+			err = evalGET(cmd, conn)
 		case "TTL":
-			evalTTL(cmd, conn)
+			err = evalTTL(cmd, conn)
 		case "DEL":
-			evalDEL(cmd, conn)
+			err = evalDEL(cmd, conn)
 		case "COMMAND":
-			evalCommand(conn)
+			err = evalCommand(conn)
 		case "BGREWRITE":
-			evalBGREAOF(conn)
+			err = evalBGREAOF(conn)
 		default:
 			errMsg := fmt.Sprintf("-ERR unknown command '%s'\r\n", cmd.Cmd)
 			conn.Write([]byte(errMsg))
 		}
 
+		// If the eval function returned an error, send it to the client
+		if err != nil {
+			// Some of your errors already start with "(error) " or "ERR ".
+			// Standard RESP errors start with a minus sign.
+			conn.Write([]byte(fmt.Sprintf("-%s\r\n", err.Error())))
+		}
 	}
 
 	return nil
