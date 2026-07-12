@@ -1,7 +1,6 @@
 package core
 
 import (
-	"log"
 	"time"
 )
 
@@ -25,12 +24,12 @@ func expireSample() float32 {
 }
 
 func DelExpireKeys() {
-	log.Printf("Sher")
+	//log.Printf("Sher")
 	for {
 		frac := expireSample()
 		if frac < 0.25 {
 			break
 		}
 	}
-	log.Println("deleted the expired but undeleted keys. total keys", len(store))
+	//log.Println("deleted the expired but undeleted keys. total keys", len(store))
 }

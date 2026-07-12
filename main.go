@@ -8,8 +8,8 @@ import (
 )
 
 func setupFlags() {
-	flag.StringVar(&config.Host, "host", "0.0.0.0", "host")
-	flag.IntVar(&config.Port, "port", 7379, "port")
+	flag.StringVar(&config.Host, "host", config.Host, "host")
+	flag.IntVar(&config.Port, "port", config.Port, "port")
 	flag.Parse()
 }
 

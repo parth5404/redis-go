@@ -159,10 +159,12 @@ func Encode(value interface{}, isSimple bool) []byte {
 	case []string:
 		var b []byte
 		buf := bytes.NewBuffer(b)
-		for _, val := range value.([]string) {
+		for _, val := range v {
 			buf.Write(Encode(val, false))
 		}
-		return []byte(fmt.Sprintf("*%d\r\n%s", len(value.([]string)), buf.Bytes()))
+		return []byte(fmt.Sprintf("*%d\r\n%s", len(v), buf.Bytes()))
+	case error:
+		return []byte(fmt.Sprintf("-%s\r\n", v.Error()))
 	}
 	return RESP_NIL
 }

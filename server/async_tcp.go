@@ -45,10 +45,11 @@ func RunAsyncTCP() error {
 		log.Print(err.Error())
 		return err
 	}
-	log.Println("Server Started")
+	log.Printf("Server Started at %v", config.Port)
 
 	// Run the expiration job in a dedicated background goroutine
 	go func() {
+		log.Println("Started the expiry go routine")
 		ticker := time.NewTicker(cronFrequency)
 		for range ticker.C {
 			core.DelExpireKeys()
@@ -86,8 +87,8 @@ func RunAsyncTCP() error {
 				if err != nil {
 					syscall.Close(int(events[i].Fd))
 					con_clients -= 1
-					continue	
-				}		
+					continue
+				}
 				//single threaded response making
 				respond(&comm, cmds)
 			}

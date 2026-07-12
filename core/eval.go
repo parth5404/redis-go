@@ -4,162 +4,173 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"time"
 )
 
 var RESP_NIL []byte = []byte("$-1\r\n")
 
-func evalPing(cmd *RedisCmd, conn io.ReadWriter) error {
+func evalPing(args []string) []byte {
 	var b []byte
-	if len(cmd.Args) > 2 {
-		return errors.New("ERR wrong number of arguments for 'ping' command")
+	if len(args) > 2 {
+		return Encode(errors.New("ERR wrong number of arguments for 'ping' command"), false)
 	}
-	if len(cmd.Args) == 1 {
-		b = Encode(cmd.Args[0], false)
+	if len(args) == 1 {
+		b = Encode(args[0], false)
 	} else {
 		b = Encode("PONG", true)
 	}
 	fmt.Println(string(b))
-	_, err := conn.Write(b)
-	return err
+	return b
 }
 
-func evalSET(cmd *RedisCmd, conn io.ReadWriter) error {
-	if len(cmd.Args) < 2 {
-		return errors.New("(error) ERR wrong number of arguments for set command")
+func evalSET(args []string) []byte {
+	if len(args) < 2 {
+		return Encode(errors.New("(error) ERR wrong number of arguments for set command"), false)
 	}
 	var key, value string
 	var expMs int64 = -1
-	key, value = cmd.Args[0], cmd.Args[1]
-	for i := 2; i < len(cmd.Args); i++ {
-		switch cmd.Args[i] {
+	key, value = args[0], args[1]
+	oType, eType := deduceTypeEncoding(value)
+	for i := 2; i < len(args); i++ {
+		switch args[i] {
 		case "EX", "ex":
 			i++
-			if i == len(cmd.Args) {
-				return errors.New("(error) ERR invalid syntax")
+			if i == len(args) {
+				return Encode(errors.New("(error) ERR invalid syntax"), false)
 			}
-			exDurSec, err := strconv.ParseInt(cmd.Args[i], 10, 64)
+			exDurSec, err := strconv.ParseInt(args[i], 10, 64)
 			if err != nil {
-				return errors.New("(error) ERR value is not an integer or out of range")
+				return Encode(errors.New("(error) ERR value is not an integer or out of range"), false)
 			}
 			expMs = exDurSec * 1000
 		default:
-			return errors.New("(error) ERR synatx error")
+			return Encode(errors.New("(error) ERR synatx error"), false)
 		}
 	}
-	Put(key, NewObj(value, expMs))
-	if err := evalCommand(conn); err != nil {
-		return errors.New("(error) ERR OK conn write error")
-	}
-	return nil
+	Put(key, NewObj(value, expMs, oType, eType))
+	return []byte("+OK\r\n")
 }
 
-func evalGET(cmd *RedisCmd, conn io.ReadWriter) error {
-	if len(cmd.Args) < 1 {
-		return errors.New("(error) ERR wrong number of arguments for set command")
+func evalGET(args []string) []byte {
+	if len(args) < 1 {
+		return Encode(errors.New("(error) ERR wrong number of arguments for set command"), false)
 	}
 	var key string
-	key = cmd.Args[0]
+	key = args[0]
 	value := Get(key)
 	if value == nil {
-		conn.Write(RESP_NIL)
-		return nil
+		return RESP_NIL
 	}
 	if value.ExpiresAt != -1 && value.ExpiresAt <= time.Now().UnixMilli() {
-		conn.Write(RESP_NIL)
-		return nil
+		return RESP_NIL
 	}
 
-	conn.Write(Encode(value.Value, false))
-
-	return nil
+	return Encode(value.Value, false)
 }
 
-func evalTTL(cmd *RedisCmd, conn io.ReadWriter) error {
-	if len(cmd.Args) < 1 {
-		return errors.New("(error) ERR wrong number of arguments for TTL command")
+func evalTTL(args []string) []byte {
+	if len(args) < 1 {
+		return Encode(errors.New("(error) ERR wrong number of arguments for TTL command"), false)
 	}
 	var key string
-	key = cmd.Args[0]
+	key = args[0]
 	value := Get(key)
 	if value == nil {
-		conn.Write([]byte(":-2\r\n"))
-		return nil
+		return []byte(":-2\r\n")
 	}
 
 	if value.ExpiresAt == -1 {
-		conn.Write([]byte(":-1\r\n"))
-		return nil
+		return []byte(":-1\r\n")
 	}
 	leftMs := value.ExpiresAt - time.Now().UnixMilli()
 	if leftMs < 0 {
-		conn.Write([]byte(":-2\r\n"))
-		return nil
+		return []byte(":-2\r\n")
 	}
-	conn.Write(Encode(int64(leftMs/1000), false))
-
-	return nil
+	return Encode(int64(leftMs/1000), false)
 }
 
-func evalDEL(cmd *RedisCmd, conn io.ReadWriter) error {
-	if len(cmd.Args) < 1 {
-		return errors.New("(error) ERR wrong number of arguments for DEL command")
+func evalDEL(args []string) []byte {
+	if len(args) < 1 {
+		return Encode(errors.New("(error) ERR wrong number of arguments for DEL command"), false)
 	}
 	cnt := 0
-	for _, key := range cmd.Args {
+	for _, key := range args {
 		if ok := Del(key); ok {
 			cnt++
 		}
 	}
-	conn.Write(Encode(int64(cnt), false))
-	return nil
+	return Encode(int64(cnt), false)
 }
 
-func evalCommand(conn io.ReadWriter) error {
-	_, err := conn.Write([]byte("+OK\r\n"))
-	return err
+func evalCommand() []byte {
+	return []byte("+OK\r\n")
 }
-func evalBGREAOF(conn io.ReadWriter) error {
+func evalBGREAOF() []byte {
 	go func() {
 		DumpAlLAof()
 	}()
 	// if err != nil {
-	// 	return errors.New("(error) ERR AOF file error")
+	// 	return Encode(errors.New("(error) ERR AOF file error"), false)
 	// }
-	conn.Write([]byte("+OK\r\n"))
-	return nil
+	return []byte("+OK\r\n")
+}
+
+func evalINCR(args []string) []byte {
+	log.Println(args)
+	if len(args) != 1 {
+		return Encode(errors.New("(error) ERR wrong number of arguments for INCR command"), false)
+	}
+	key := args[0]
+	obj := Get(key)
+	if obj == nil {
+		obj = NewObj("0", -1, OBJ_TYPE_STRING, OBJ_ENCODING_INT)
+		Put(key, obj)
+	}
+	if err := assertType(obj.TypeEncoding, OBJ_TYPE_STRING); err != nil {
+		return Encode(err, false)
+	}
+	if err := assertEncoding(obj.TypeEncoding, OBJ_ENCODING_INT); err != nil {
+		return Encode(err, false)
+	}
+	valStr := obj.Value.(string)
+	val, err := strconv.ParseInt(valStr, 10, 64)
+	if err != nil {
+		return Encode(errors.New("ERR value is not an integer or out of range"), false)
+	}
+	val++
+	obj.Value = strconv.FormatInt(val, 10)
+	return Encode(val, false)
 }
 
 func EvalAndRespond(cmds *RedisCmds, conn io.ReadWriter) error {
 	//log.Println("command", cmd.Cmd)
 	for _, cmd := range *cmds {
-		var err error
+		var res []byte
 		switch cmd.Cmd {
 		case "PING":
-			err = evalPing(cmd, conn)
+			res = evalPing(cmd.Args)
 		case "SET":
-			err = evalSET(cmd, conn)
+			res = evalSET(cmd.Args)
 		case "GET":
-			err = evalGET(cmd, conn)
+			res = evalGET(cmd.Args)
 		case "TTL":
-			err = evalTTL(cmd, conn)
+			res = evalTTL(cmd.Args)
 		case "DEL":
-			err = evalDEL(cmd, conn)
+			res = evalDEL(cmd.Args)
+		case "INCR":
+			res = evalINCR(cmd.Args)
 		case "COMMAND":
-			err = evalCommand(conn)
+			res = evalCommand()
 		case "BGREWRITE":
-			err = evalBGREAOF(conn)
+			res = evalBGREAOF()
 		default:
-			errMsg := fmt.Sprintf("-ERR unknown command '%s'\r\n", cmd.Cmd)
-			conn.Write([]byte(errMsg))
+			res = Encode(fmt.Errorf("ERR unknown command '%s'", cmd.Cmd), false)
 		}
 
-		// If the eval function returned an error, send it to the client
-		if err != nil {
-			// Some of your errors already start with "(error) " or "ERR ".
-			// Standard RESP errors start with a minus sign.
-			conn.Write([]byte(fmt.Sprintf("-%s\r\n", err.Error())))
+		if res != nil {
+			conn.Write(res)
 		}
 	}
 
