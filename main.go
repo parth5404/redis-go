@@ -11,9 +11,12 @@ import (
 	"github/redis.go/server"
 )
 
+var mcpMode bool
+
 func setupFlags() {
 	flag.StringVar(&config.Host, "host", config.Host, "host")
 	flag.IntVar(&config.Port, "port", config.Port, "port")
+	flag.BoolVar(&mcpMode, "mcp", false, "Run as an MCP stdio server")
 	flag.Parse()
 }
 
@@ -30,6 +33,13 @@ func main() {
 		}
 	}()
 
-	//server.RunSyncTCP()
-	server.RunAsyncTCP()
+	if mcpMode {
+		log.Println("Starting MCP server over stdio...")
+		go server.RunAsyncTCP()
+		if err := server.StartMCPServer(); err != nil {
+			log.Fatalf("MCP Server error: %v", err)
+		}
+	} else {
+		server.RunAsyncTCP()
+	}
 }

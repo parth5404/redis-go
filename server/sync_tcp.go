@@ -57,7 +57,7 @@ func readCmds(c io.ReadWriter) (*core.RedisCmds, error) {
 	}
 	var rediscmds core.RedisCmds = make([]*core.RedisCmd, 0)
 	for _, v := range rediscmd {
-		fmt.Println(v)
+		log.Println(v)
 		arr, ok := v.([]interface{})
 		var args []string = make([]string, len(arr))
 		if !ok {

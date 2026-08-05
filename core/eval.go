@@ -21,7 +21,7 @@ func evalPing(args []string) []byte {
 	} else {
 		b = Encode("PONG", true)
 	}
-	fmt.Println(string(b))
+	log.Println(string(b))
 	return b
 }
 
