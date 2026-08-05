@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 
 	"github/redis.go/config"
+	"github/redis.go/core"
 	"github/redis.go/server"
 )
 
@@ -19,6 +20,8 @@ func setupFlags() {
 func main() {
 	setupFlags()
 	log.Println("Cache Hit")
+
+	core.LoadAof()
 
 	go func() {
 		log.Println("Starting pprof on :6060")

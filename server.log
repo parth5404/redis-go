@@ -1,0 +1,7 @@
+2026/08/06 01:39:30 Cache Hit
+2026/08/06 01:39:30 Server Started at 7378
+2026/08/06 01:39:30 Starting pprof on :6060
+2026/08/06 01:39:30 Started the expiry go routine
+[SET name antigravity]
+[SET project redis-clone-demo]
+[BGREWRITE]

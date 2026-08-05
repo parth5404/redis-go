@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"github/redis.go/config"
+	"log"
 	"os"
 	"strings"
 )
@@ -26,4 +27,42 @@ func DumpAlLAof() error {
 		dumpKey(file, k, obj)
 	}
 	return nil
+}
+
+func LoadAof() {
+	fileContent, err := os.ReadFile(config.AOFfile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		log.Println("Error reading AOF file:", err)
+		return
+	}
+	if len(fileContent) == 0 {
+		return
+	}
+
+	commands, err := Decode(fileContent)
+	if err != nil {
+		log.Println("Error decoding AOF file:", err)
+		return
+	}
+
+	for _, v := range commands {
+		arr, ok := v.([]interface{})
+		if !ok || len(arr) == 0 {
+			continue
+		}
+
+		var args = make([]string, len(arr))
+		for i := 0; i < len(arr); i++ {
+			args[i] = arr[i].(string)
+		}
+
+		cmd := args[0]
+		if strings.ToUpper(cmd) == "SET" {
+			evalSET(args[1:])
+		}
+	}
+	log.Println("Successfully loaded AOF file. Store populated.")
 }
