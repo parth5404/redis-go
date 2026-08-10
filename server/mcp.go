@@ -86,46 +86,46 @@ func StartMCPServer() error {
 	})
 
 	// Tool: redis_del
-	toolDel := mcp.NewTool("redis_del",
-		mcp.WithDescription("Delete a key from Redis"),
-		mcp.WithString("key", mcp.Required(), mcp.Description("The key to delete")),
-	)
-	s.AddTool(toolDel, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args, ok := request.Params.Arguments.(map[string]interface{})
-		if !ok {
-			return mcp.NewToolResultError("Invalid arguments format"), nil
-		}
-		key, ok1 := args["key"].(string)
-		if !ok1 {
-			return mcp.NewToolResultError("Missing key"), nil
-		}
-		res, err := executeCommand("DEL", key)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(res), nil
-	})
+	// toolDel := mcp.NewTool("redis_del",
+	// 	mcp.WithDescription("Delete a key from Redis"),
+	// 	mcp.WithString("key", mcp.Required(), mcp.Description("The key to delete")),
+	// )
+	// s.AddTool(toolDel, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 	args, ok := request.Params.Arguments.(map[string]interface{})
+	// 	if !ok {
+	// 		return mcp.NewToolResultError("Invalid arguments format"), nil
+	// 	}
+	// 	key, ok1 := args["key"].(string)
+	// 	if !ok1 {
+	// 		return mcp.NewToolResultError("Missing key"), nil
+	// 	}
+	// 	res, err := executeCommand("DEL", key)
+	// 	if err != nil {
+	// 		return mcp.NewToolResultError(err.Error()), nil
+	// 	}
+	// 	return mcp.NewToolResultText(res), nil
+	// })
 
-	// Tool: redis_incr
-	toolIncr := mcp.NewTool("redis_incr",
-		mcp.WithDescription("Increment an integer value by 1"),
-		mcp.WithString("key", mcp.Required(), mcp.Description("The key to increment")),
-	)
-	s.AddTool(toolIncr, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args, ok := request.Params.Arguments.(map[string]interface{})
-		if !ok {
-			return mcp.NewToolResultError("Invalid arguments format"), nil
-		}
-		key, ok1 := args["key"].(string)
-		if !ok1 {
-			return mcp.NewToolResultError("Missing key"), nil
-		}
-		res, err := executeCommand("INCR", key)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(res), nil
-	})
+	// // Tool: redis_incr
+	// toolIncr := mcp.NewTool("redis_incr",
+	// 	mcp.WithDescription("Increment an integer value by 1"),
+	// 	mcp.WithString("key", mcp.Required(), mcp.Description("The key to increment")),
+	// )
+	// s.AddTool(toolIncr, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 	args, ok := request.Params.Arguments.(map[string]interface{})
+	// 	if !ok {
+	// 		return mcp.NewToolResultError("Invalid arguments format"), nil
+	// 	}
+	// 	key, ok1 := args["key"].(string)
+	// 	if !ok1 {
+	// 		return mcp.NewToolResultError("Missing key"), nil
+	// 	}
+	// 	res, err := executeCommand("INCR", key)
+	// 	if err != nil {
+	// 		return mcp.NewToolResultError(err.Error()), nil
+	// 	}
+	// 	return mcp.NewToolResultText(res), nil
+	// })
 
 	// Start the stdio server
 	return server.ServeStdio(s)
