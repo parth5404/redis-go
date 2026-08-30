@@ -2,13 +2,12 @@ package main
 
 import (
 	"flag"
-	"log"
-	"net/http"
-	_ "net/http/pprof"
-
 	"github/redis.go/config"
 	"github/redis.go/core"
 	"github/redis.go/server"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 var mcpMode bool
