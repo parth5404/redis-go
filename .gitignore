@@ -40,3 +40,10 @@ debug
 __debug_bin*
 
 
+
+# Local build output
+server_bin
+test-server
+*.log
+server_log*.txt
+appendonly.aof
