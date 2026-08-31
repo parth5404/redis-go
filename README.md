@@ -15,16 +15,16 @@ read and write the same keyspace through tools instead of a socket.
 
 ## Benchmarks
 
-Measured with `redis-benchmark`, 50 concurrent clients, 100,000 requests, three
-runs, against a real `redis-server` on the same idle machine with identical
-client settings.
+Measured with `redis-benchmark`, 50 concurrent clients, 100,000 requests per
+run, averaged over six runs, against a real `redis-server` on the same idle
+machine with identical client settings.
 
 | | redis-go | redis-server 8.8.0 | ratio |
 |---|---:|---:|---:|
-| SET throughput | 132,755 ops/sec | 140,059 ops/sec | 94.8% |
-| GET throughput | 134,069 ops/sec | 140,483 ops/sec | 95.4% |
-| SET p50 latency | 0.183 ms | 0.180 ms | — |
-| GET p50 latency | 0.183 ms | 0.178 ms | — |
+| SET throughput | 129,530 ops/sec | 136,672 ops/sec | 94.8% |
+| GET throughput | 131,513 ops/sec | 139,179 ops/sec | 94.5% |
+| SET p50 latency | 0.183 ms | 0.183 ms | — |
+| GET p50 latency | 0.183 ms | 0.180 ms | — |
 
 Both servers ran with persistence disabled, so neither pays for background
 writes during the measurement.
