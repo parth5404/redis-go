@@ -1,40 +1,41 @@
 package core
 
-import (
-	"time"
-)
+// sampleSize is how many keys one sweep round looks at. Redis uses 20 and the
+// 0.25 threshold below is calibrated against that number.
+const sampleSize = 20
 
+// expireSample deletes the expired keys among a random sample of the keyspace
+// and returns the fraction of that sample which turned out to be expired.
 func expireSample() float32 {
 	RWmutex.Lock()
 	defer RWmutex.Unlock()
-	var limit int = 20
-	var expiredCount int = 0
 
+	sampled, expired := 0, 0
 	for key, obj := range store {
-		if obj.ExpiresAt != -1 && time.Now().UnixMilli() >= obj.ExpiresAt {
-			delete(store, key)
-			expiredCount++
-			limit--
-		}
-		if limit == 0 {
+		if sampled == sampleSize {
 			break
 		}
+		sampled++
+		if isExpired(obj) {
+			delete(store, key)
+			trackKeyRemoved()
+			expired++
+		}
 	}
-	return float32(expiredCount) / float32(limit)
+	if sampled == 0 {
+		return 0
+	}
+	return float32(expired) / float32(sampled)
 }
 
+// DelExpireKeys runs the active half of expiry. Keys are also dropped lazily on
+// read, but a key nobody ever reads again would otherwise sit in memory
+// forever, so the sweep keeps sampling while hits stay dense — and stops early
+// once they thin out, to avoid stalling the event loop.
 func DelExpireKeys() {
-	//log.Printf("Sher")
-	itr := 0
-	for {
-		frac := expireSample()
-		if frac < 0.25 {
-			break
+	for itr := 0; itr < 16; itr++ {
+		if expireSample() < 0.25 {
+			return
 		}
-		if itr > 16 {
-			break
-		}
-		itr++
 	}
-	//log.Println("deleted the expired but undeleted keys. total keys", len(store))
 }

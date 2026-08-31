@@ -39,4 +39,17 @@ tmp/
 debug
 __debug_bin*
 
+# Compiled server binaries
+redisgo
+server_bin
+test-server
+
+# Runtime output: logs, the AOF snapshot and benchmark transcripts are all
+# regenerated on every run and should not be versioned.
+*.log
+*.aof
+server_log*.txt
+bench/*.txt
+bench/results/
+
 

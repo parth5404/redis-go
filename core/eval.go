@@ -4,175 +4,197 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
 var RESP_NIL []byte = []byte("$-1\r\n")
 
-func evalPing(args []string) []byte {
-	var b []byte
-	if len(args) > 2 {
-		return Encode(errors.New("ERR wrong number of arguments for 'ping' command"), false)
+var RESP_OK []byte = []byte("+OK\r\n")
+
+func wrongArgs(cmd string) []byte {
+	return Encode(fmt.Errorf("ERR wrong number of arguments for '%s' command", cmd), false)
+}
+
+func evalPING(args []string) []byte {
+	if len(args) > 1 {
+		return wrongArgs("ping")
 	}
 	if len(args) == 1 {
-		b = Encode(args[0], false)
-	} else {
-		b = Encode("PONG", true)
+		return Encode(args[0], false)
 	}
-	log.Println(string(b))
-	return b
+	return Encode("PONG", true)
 }
 
 func evalSET(args []string) []byte {
 	if len(args) < 2 {
-		return Encode(errors.New("(error) ERR wrong number of arguments for set command"), false)
+		return wrongArgs("set")
 	}
-	var key, value string
+
+	key, value := args[0], args[1]
 	var expMs int64 = -1
-	key, value = args[0], args[1]
 	oType, eType := deduceTypeEncoding(value)
+
 	for i := 2; i < len(args); i++ {
-		switch args[i] {
-		case "EX", "ex":
+		switch strings.ToUpper(args[i]) {
+		case "EX":
 			i++
 			if i == len(args) {
-				return Encode(errors.New("(error) ERR invalid syntax"), false)
+				return Encode(errors.New("ERR syntax error"), false)
 			}
 			exDurSec, err := strconv.ParseInt(args[i], 10, 64)
 			if err != nil {
-				return Encode(errors.New("(error) ERR value is not an integer or out of range"), false)
+				return Encode(errors.New("ERR value is not an integer or out of range"), false)
+			}
+			if exDurSec <= 0 {
+				return Encode(errors.New("ERR invalid expire time in 'set' command"), false)
 			}
 			expMs = exDurSec * 1000
 		default:
-			return Encode(errors.New("(error) ERR synatx error"), false)
+			return Encode(errors.New("ERR syntax error"), false)
 		}
 	}
+
 	Put(key, NewObj(value, expMs, oType, eType))
-	return []byte("+OK\r\n")
+	return RESP_OK
 }
 
 func evalGET(args []string) []byte {
-	if len(args) < 1 {
-		return Encode(errors.New("(error) ERR wrong number of arguments for set command"), false)
+	if len(args) != 1 {
+		return wrongArgs("get")
 	}
-	var key string
-	key = args[0]
-	value := Get(key)
-	if value == nil {
+	obj := Get(args[0])
+	if obj == nil {
 		return RESP_NIL
 	}
-	if value.ExpiresAt != -1 && value.ExpiresAt <= time.Now().UnixMilli() {
-		return RESP_NIL
-	}
-
-	return Encode(value.Value, false)
-}
-
-func evalTTL(args []string) []byte {
-	if len(args) < 1 {
-		return Encode(errors.New("(error) ERR wrong number of arguments for TTL command"), false)
-	}
-	var key string
-	key = args[0]
-	value := Get(key)
-	if value == nil {
-		return []byte(":-2\r\n")
-	}
-
-	if value.ExpiresAt == -1 {
-		return []byte(":-1\r\n")
-	}
-	leftMs := value.ExpiresAt - time.Now().UnixMilli()
-	if leftMs < 0 {
-		return []byte(":-2\r\n")
-	}
-	return Encode(int64(leftMs/1000), false)
+	return Encode(obj.Value, false)
 }
 
 func evalDEL(args []string) []byte {
 	if len(args) < 1 {
-		return Encode(errors.New("(error) ERR wrong number of arguments for DEL command"), false)
+		return wrongArgs("del")
 	}
-	cnt := 0
+	var cnt int64
 	for _, key := range args {
-		if ok := Del(key); ok {
+		if Del(key) {
 			cnt++
 		}
 	}
-	return Encode(int64(cnt), false)
+	return Encode(cnt, false)
 }
 
-func evalCommand() []byte {
-	return []byte("+OK\r\n")
-}
-func evalBGREAOF() []byte {
-	go func() {
-		DumpAlLAof()
-	}()
-	// if err != nil {
-	// 	return Encode(errors.New("(error) ERR AOF file error"), false)
-	// }
-	return []byte("+OK\r\n")
+func evalEXISTS(args []string) []byte {
+	if len(args) < 1 {
+		return wrongArgs("exists")
+	}
+	var cnt int64
+	for _, key := range args {
+		if Get(key) != nil {
+			cnt++
+		}
+	}
+	return Encode(cnt, false)
 }
 
-func evalINCR(args []string) []byte {
-	log.Println(args)
-	if len(args) != 1 {
-		return Encode(errors.New("(error) ERR wrong number of arguments for INCR command"), false)
+func evalEXPIRE(args []string) []byte {
+	if len(args) != 2 {
+		return wrongArgs("expire")
 	}
-	key := args[0]
-	obj := Get(key)
-	if obj == nil {
-		obj = NewObj("0", -1, OBJ_TYPE_STRING, OBJ_ENCODING_INT)
-		Put(key, obj)
-	}
-	if err := assertType(obj.TypeEncoding, OBJ_TYPE_STRING); err != nil {
-		return Encode(err, false)
-	}
-	if err := assertEncoding(obj.TypeEncoding, OBJ_ENCODING_INT); err != nil {
-		return Encode(err, false)
-	}
-	valStr := obj.Value.(string)
-	val, err := strconv.ParseInt(valStr, 10, 64)
+	seconds, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
 		return Encode(errors.New("ERR value is not an integer or out of range"), false)
 	}
-	val++
-	obj.Value = strconv.FormatInt(val, 10)
+	if !Expire(args[0], seconds*1000) {
+		return Encode(int64(0), false)
+	}
+	return Encode(int64(1), false)
+}
+
+func evalTTL(args []string) []byte {
+	if len(args) != 1 {
+		return wrongArgs("ttl")
+	}
+	obj := Get(args[0])
+	if obj == nil {
+		return Encode(int64(-2), false)
+	}
+	if obj.ExpiresAt == -1 {
+		return Encode(int64(-1), false)
+	}
+	leftMs := obj.ExpiresAt - time.Now().UnixMilli()
+	if leftMs < 0 {
+		return Encode(int64(-2), false)
+	}
+	return Encode(leftMs/1000, false)
+}
+
+// evalTYPE reads the type straight back out of the packed type/encoding byte
+// carried on every object.
+func evalTYPE(args []string) []byte {
+	if len(args) != 1 {
+		return wrongArgs("type")
+	}
+	obj := Get(args[0])
+	if obj == nil {
+		return Encode("none", true)
+	}
+	return Encode(typeName(obj.TypeEncoding), true)
+}
+
+func evalINCR(args []string) []byte { return incrDecr(args, "incr", 1) }
+
+func evalDECR(args []string) []byte { return incrDecr(args, "decr", -1) }
+
+func incrDecr(args []string, name string, delta int64) []byte {
+	if len(args) != 1 {
+		return wrongArgs(name)
+	}
+	val, err := IncrBy(args[0], delta)
+	if err != nil {
+		return Encode(err, false)
+	}
 	return Encode(val, false)
 }
 
+func evalCOMMAND(args []string) []byte {
+	if len(args) == 0 {
+		return Encode(CommandNames(), false)
+	}
+	// redis-cli probes "COMMAND DOCS" on connect. Acknowledge subcommands
+	// rather than pretending to implement the full introspection payload.
+	return RESP_OK
+}
+
+// evalBGREWRITEAOF hands the snapshot to a background goroutine so a large
+// keyspace does not block the event loop mid-dump.
+func evalBGREWRITEAOF(args []string) []byte {
+	go DumpAlLAof()
+	return []byte("+Background append only file rewriting started\r\n")
+}
+
 func EvalAndRespond(cmds *RedisCmds, conn io.ReadWriter) error {
-	//log.Println("command", cmd.Cmd)
+	if cmds == nil {
+		return nil
+	}
 	for _, cmd := range *cmds {
+		if cmd == nil {
+			continue
+		}
+
 		var res []byte
-		switch cmd.Cmd {
-		case "PING":
-			res = evalPing(cmd.Args)
-		case "SET":
-			res = evalSET(cmd.Args)
-		case "GET":
-			res = evalGET(cmd.Args)
-		case "TTL":
-			res = evalTTL(cmd.Args)
-		case "DEL":
-			res = evalDEL(cmd.Args)
-		case "INCR":
-			res = evalINCR(cmd.Args)
-		case "COMMAND":
-			res = evalCommand()
-		case "BGREWRITE":
-			res = evalBGREAOF()
-		default:
+		if handler, ok := commands[strings.ToUpper(cmd.Cmd)]; ok {
+			res = handler(cmd.Args)
+		} else {
 			res = Encode(fmt.Errorf("ERR unknown command '%s'", cmd.Cmd), false)
 		}
 
-		if res != nil {
-			conn.Write(res)
+		if res == nil {
+			continue
+		}
+		if _, err := conn.Write(res); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
