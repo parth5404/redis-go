@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 )
 
 var con_clients int = 0
@@ -51,29 +52,36 @@ func readCmds(c io.ReadWriter) (*core.RedisCmds, error) {
 	if err != nil {
 		return nil, err
 	}
-	rediscmd, err := core.Decode(buf[:n])
+	if n == 0 {
+		return nil, io.EOF
+	}
+
+	values, err := core.Decode(buf[:n])
 	if err != nil {
 		return nil, err
 	}
-	var rediscmds core.RedisCmds = make([]*core.RedisCmd, 0)
-	for _, v := range rediscmd {
-		log.Println(v)
+
+	rediscmds := make(core.RedisCmds, 0, len(values))
+	for _, v := range values {
+		// Anything that is not an array of bulk strings is not a command.
+		// These assertions run on bytes straight off a socket, so they stay
+		// checked: an unchecked one would let a malformed frame panic the
+		// event loop and take every other connection down with it.
 		arr, ok := v.([]interface{})
-		var args []string = make([]string, len(arr))
-		if !ok {
-			return nil, nil
+		if !ok || len(arr) == 0 {
+			continue
 		}
-		for i := 1; i < len(arr); i++ {
-			args[i] = arr[i].(string)
+		tokens, err := core.DecodeArrayString(arr)
+		if err != nil {
+			return nil, err
 		}
 
 		rediscmds = append(rediscmds, &core.RedisCmd{
-			Cmd:  arr[0].(string),
-			Args: args[1:],
+			Cmd:  strings.ToUpper(tokens[0]),
+			Args: tokens[1:],
 		})
 	}
 	return &rediscmds, nil
-
 }
 
 func respond(c io.ReadWriter, cmds *core.RedisCmds) {

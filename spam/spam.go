@@ -23,6 +23,7 @@ func stormSet(wg *sync.WaitGroup) {
 	if err != nil {
 		panic(err)
 	}
+	defer conn.Close()
 
 	for {
 		time.Sleep(500 * time.Millisecond)
@@ -42,7 +43,6 @@ func stormSet(wg *sync.WaitGroup) {
 			panic(err)
 		}
 	}
-	conn.Close()
 }
 
 func main() {
